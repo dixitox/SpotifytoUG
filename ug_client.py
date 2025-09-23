@@ -160,48 +160,129 @@ class UltimateGuitarClient:
         try:
             logger.info(f"Searching for: {song_name} by {artist_name}")
             
-            # Navigate to search page
-            search_query = f"{song_name} {artist_name}".strip()
-            await self.page.goto(f"https://www.ultimate-guitar.com/search.php?search_type=title&value={search_query}")
+            # Clean up search query - remove special characters that might break search
+            clean_song = song_name.replace("(", "").replace(")", "").replace("[", "").replace("]", "")
+            clean_artist = artist_name.replace("(", "").replace(")", "").replace("[", "").replace("]", "")
             
-            # Wait for search results
-            await self.page.wait_for_selector(".js-search-results, .search-results", timeout=10000)
+            # Try multiple search strategies
+            search_queries = [
+                f"{clean_song} {clean_artist}",
+                f'"{clean_song}" {clean_artist}',
+                f"{clean_song}",
+                f"{clean_artist} {clean_song}"
+            ]
             
-            # Look for the first relevant result
-            first_result = await self.page.query_selector(".js-search-results .js-click-track, .search-results a")
-            
-            if first_result:
-                # Click on the first result
-                await first_result.click()
+            for i, search_query in enumerate(search_queries):
+                logger.debug(f"Trying search strategy {i+1}: {search_query}")
                 
-                # Wait for song page to load
-                await self.page.wait_for_timeout(2000)
+                # Navigate to search page with encoded query
+                from urllib.parse import quote_plus
+                encoded_query = quote_plus(search_query.strip())
+                search_url = f"https://www.ultimate-guitar.com/search.php?search_type=title&value={encoded_query}"
                 
-                # Look for "Add to playlist" button
-                add_button = await self.page.query_selector(".js-add-to-playlist, .btn-add-playlist, [data-action*='playlist']")
+                await self.page.goto(search_url)
                 
-                if add_button:
-                    await add_button.click()
-                    
-                    # Wait for playlist selection modal
-                    await self.page.wait_for_selector(".playlist-modal, .modal-playlist", timeout=5000)
-                    
-                    # Select the target playlist
-                    playlist_option = await self.page.query_selector(f"[data-playlist-name='{playlist_name}'], .playlist-item:has-text('{playlist_name}')")
-                    
-                    if playlist_option:
-                        await playlist_option.click()
-                        logger.info(f"Added '{song_name}' by '{artist_name}' to playlist '{playlist_name}'")
-                        return True
-                    else:
-                        logger.warning(f"Playlist '{playlist_name}' not found in selection")
-                        return False
-                else:
-                    logger.warning("Add to playlist button not found")
-                    return False
-            else:
-                logger.warning(f"No search results found for '{song_name}' by '{artist_name}'")
-                return False
+                # Wait for search results
+                try:
+                    await self.page.wait_for_selector(".js-search-results, .search-results, .search_results", timeout=5000)
+                except:
+                    logger.debug(f"No search results found for query: {search_query}")
+                    continue
+                
+                # Look for relevant results (prioritize guitar tabs/chords)
+                result_selectors = [
+                    ".js-search-results .js-click-track",
+                    ".search-results a[href*='tabs']",
+                    ".search-results a[href*='chords']", 
+                    ".search_results a",
+                    ".search-results a"
+                ]
+                
+                first_result = None
+                for selector in result_selectors:
+                    first_result = await self.page.query_selector(selector)
+                    if first_result:
+                        break
+                
+                if first_result:
+                    try:
+                        # Click on the first result
+                        await first_result.click()
+                        
+                        # Wait for song page to load
+                        await self.page.wait_for_timeout(3000)
+                        
+                        # Look for "Add to playlist" button with multiple possible selectors
+                        add_button_selectors = [
+                            ".js-add-to-playlist",
+                            ".btn-add-playlist", 
+                            "[data-action*='playlist']",
+                            "button:has-text('Add to playlist')",
+                            "a:has-text('Add to playlist')",
+                            ".playlist-add",
+                            ".add-playlist"
+                        ]
+                        
+                        add_button = None
+                        for selector in add_button_selectors:
+                            try:
+                                add_button = await self.page.query_selector(selector)
+                                if add_button:
+                                    break
+                            except:
+                                continue
+                        
+                        if add_button:
+                            await add_button.click()
+                            
+                            # Wait for playlist selection modal
+                            try:
+                                await self.page.wait_for_selector(".playlist-modal, .modal-playlist, .playlist-selector", timeout=5000)
+                                
+                                # Select the target playlist with multiple strategies
+                                playlist_selectors = [
+                                    f"[data-playlist-name='{playlist_name}']",
+                                    f".playlist-item:has-text('{playlist_name}')",
+                                    f"*:has-text('{playlist_name}')",
+                                    f"option:has-text('{playlist_name}')"
+                                ]
+                                
+                                playlist_option = None
+                                for selector in playlist_selectors:
+                                    try:
+                                        playlist_option = await self.page.query_selector(selector)
+                                        if playlist_option:
+                                            break
+                                    except:
+                                        continue
+                                
+                                if playlist_option:
+                                    await playlist_option.click()
+                                    
+                                    # Wait a moment for the action to complete
+                                    await self.page.wait_for_timeout(2000)
+                                    
+                                    logger.info(f"Added '{song_name}' by '{artist_name}' to playlist '{playlist_name}'")
+                                    return True
+                                else:
+                                    logger.warning(f"Playlist '{playlist_name}' not found in selection")
+                                    # Continue to next search strategy
+                                    continue
+                                    
+                            except Exception as e:
+                                logger.debug(f"Error with playlist modal: {e}")
+                                continue
+                        else:
+                            logger.debug("Add to playlist button not found, trying next search result")
+                            continue
+                            
+                    except Exception as e:
+                        logger.debug(f"Error interacting with search result: {e}")
+                        continue
+                
+            # If we get here, none of the search strategies worked
+            logger.warning(f"No suitable results found for '{song_name}' by '{artist_name}' after trying all search strategies")
+            return False
                 
         except Exception as e:
             logger.error(f"Error adding song to playlist: {e}")

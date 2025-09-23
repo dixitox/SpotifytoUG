@@ -103,16 +103,25 @@ class PlaylistSyncer:
                         
                         if success:
                             successful_adds += 1
+                            logger.info(f"✓ Successfully added track {i}/{len(tracks)}")
                         else:
                             failed_adds += 1
-                            logger.warning(f"Failed to add: {track['name']} by {track['artist']}")
+                            logger.warning(f"✗ Failed to add track {i}/{len(tracks)}: {track['name']} by {track['artist']}")
                             
-                        # Add delay between requests to be respectful
-                        await asyncio.sleep(2)
+                        # Add progressive delay - longer delays for more tracks to be respectful
+                        base_delay = 2
+                        if len(tracks) > 20:
+                            base_delay = 3
+                        if len(tracks) > 50:
+                            base_delay = 4
+                            
+                        await asyncio.sleep(base_delay)
                         
                     except Exception as e:
                         failed_adds += 1
                         logger.error(f"Error adding track {track['name']}: {e}")
+                        # Add extra delay after errors
+                        await asyncio.sleep(5)
                 
                 # Report results
                 total_tracks = len(tracks)

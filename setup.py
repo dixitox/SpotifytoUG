@@ -66,8 +66,9 @@ def main():
     print("\n=== Setup Complete ===")
     print("Next steps:")
     print("1. Edit .env file with your credentials")
-    print("2. Run: python main.py --preview")
-    print("3. Run: python main.py --sync")
+    print("2. Run: python diagnose.py       # Check your setup")
+    print("3. Run: python main.py --preview # Preview tracks")
+    print("4. Run: python main.py --sync    # Sync playlist")
     
     return 0
 

@@ -81,7 +81,21 @@ https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
 
 ## Usage
 
-### Preview Mode (Recommended First Step)
+### Diagnostic Check (Recommended First Step)
+
+Run the diagnostic tool to verify your setup:
+
+```bash
+python diagnose.py
+```
+
+This will check:
+- Dependencies installation
+- Configuration completeness
+- Spotify API connectivity
+- Ultimate Guitar login capability
+
+### Preview Mode (Recommended Before Syncing)
 
 Preview what tracks would be synced without making any changes:
 
