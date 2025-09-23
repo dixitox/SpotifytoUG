@@ -28,6 +28,7 @@ MANIFEST
 venv/
 env/
 ENV/
+test_venv/
 
 # Playwright
 .playwright/
