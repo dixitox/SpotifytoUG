@@ -112,7 +112,7 @@ SPOTIFY_PLAYLIST_ID=your_spotify_playlist_id
 ### Key Dependencies and Versions
 - Python 3.7+ required
 - spotipy==2.23.0 (Spotify Web API)
-- playwright==1.40.0 (Browser automation)
+- playwright==1.55.0 (Browser automation)
 - python-dotenv==1.0.0 (Environment management)
 - requests==2.31.0 (HTTP requests)
 
